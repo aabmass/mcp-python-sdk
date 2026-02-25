@@ -11,11 +11,11 @@ import anyio
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from opentelemetry import context as otel_context
 from opentelemetry.propagate import extract, inject
-from opentelemetry.trace import TracerProvider, get_tracer
+from opentelemetry.trace import Span, TracerProvider, get_tracer, use_span
 from pydantic import BaseModel, TypeAdapter
 from typing_extensions import Self
 
-from mcp.shared._otel_utils import mcp_client_span
+from mcp.shared._otel_utils import mcp_client_span, mcp_server_span, record_error_data
 from mcp.shared.exceptions import MCPError
 from mcp.shared.message import MessageMetadata, ServerMessageMetadata, SessionMessage
 from mcp.shared.response_router import ResponseRouter
@@ -83,6 +83,7 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
         request: ReceiveRequestT,
         session: BaseSession[SendRequestT, SendNotificationT, SendResultT, ReceiveRequestT, ReceiveNotificationT],
         on_complete: Callable[[RequestResponder[ReceiveRequestT, SendResultT]], Any],
+        mcp_server_span: Span,
         message_metadata: MessageMetadata = None,
         context: contextvars.Context | None = None,
     ) -> None:
@@ -95,6 +96,7 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
         self._completed = False
         self._cancel_scope = anyio.CancelScope()
         self._on_complete = on_complete
+        self._mcp_server_span = mcp_server_span
         self._entered = False  # Track if we're in a context manager
 
     def __enter__(self) -> RequestResponder[ReceiveRequestT, SendResultT]:
@@ -111,6 +113,8 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
         exc_tb: TracebackType | None,
     ) -> None:
         """Exit the context manager, performing cleanup and notifying completion."""
+        self._mcp_server_span.end()
+
         try:
             if self._completed:  # pragma: no branch
                 self._on_complete(self)
@@ -133,12 +137,16 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
             raise RuntimeError("RequestResponder must be used as a context manager")
         assert not self._completed, "Request already responded to"
 
-        if not self.cancelled:  # pragma: no branch
-            self._completed = True
+        with use_span(self._mcp_server_span):
+            if isinstance(response, ErrorData):
+                record_error_data(self._mcp_server_span, response)
 
-            await self._session._send_response(  # type: ignore[reportPrivateUsage]
-                request_id=self.request_id, response=response
-            )
+            if not self.cancelled:  # pragma: no branch
+                self._completed = True
+
+                await self._session._send_response(  # type: ignore[reportPrivateUsage]
+                    request_id=self.request_id, response=response
+                )
 
     async def cancel(self) -> None:
         """Cancel this request and mark it as completed."""
@@ -149,11 +157,15 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
 
         self._cancel_scope.cancel()
         self._completed = True  # Mark as completed so it's removed from in_flight
-        # Send an error response to indicate cancellation
-        await self._session._send_response(  # type: ignore[reportPrivateUsage]
-            request_id=self.request_id,
-            response=ErrorData(code=0, message="Request cancelled"),
-        )
+
+        with use_span(self._mcp_server_span):
+            error_data = ErrorData(code=0, message="Request cancelled")
+            record_error_data(self._mcp_server_span, error_data)
+
+            # Send an error response to indicate cancellation
+            await self._session._send_response(  # type: ignore[reportPrivateUsage]
+                request_id=self.request_id, response=error_data
+            )
 
     @property
     def in_flight(self) -> bool:  # pragma: no cover
@@ -378,20 +390,27 @@ class BaseSession(
                                 message.message.model_dump(by_alias=True, mode="json", exclude_none=True),
                                 by_name=False,
                             )
-                            responder = RequestResponder(
-                                request_id=message.message.id,
-                                request_meta=validated_request.params.meta if validated_request.params else None,
-                                request=validated_request,
-                                session=self,
-                                on_complete=lambda r: self._in_flight.pop(r.request_id, None),
-                                message_metadata=message.metadata,
-                                context=message.context,
-                            )
-                            self._in_flight[responder.request_id] = responder
-                            await self._received_request(responder)
+                            with mcp_server_span(
+                                self._tracer,
+                                validated_request,
+                                json_rpc_request_id=message.message.id,
+                                end_on_exit=False,
+                            ) as span:
+                                responder = RequestResponder(
+                                    request_id=message.message.id,
+                                    request_meta=validated_request.params.meta if validated_request.params else None,
+                                    request=validated_request,
+                                    session=self,
+                                    on_complete=lambda r: self._in_flight.pop(r.request_id, None),
+                                    mcp_server_span=span,
+                                    message_metadata=message.metadata,
+                                    context=contextvars.copy_context(),
+                                )
+                                self._in_flight[responder.request_id] = responder
+                                await self._received_request(responder)
 
-                            if not responder._completed:  # type: ignore[reportPrivateUsage]
-                                await self._handle_incoming(responder)
+                                if not responder._completed:  # type: ignore[reportPrivateUsage]
+                                    await self._handle_incoming(responder)
                         except Exception:
                             # For request validation errors, send a proper JSON-RPC error
                             # response instead of crashing the server
@@ -411,29 +430,30 @@ class BaseSession(
                                 message.message.model_dump(by_alias=True, mode="json", exclude_none=True),
                                 by_name=False,
                             )
-                            # Handle cancellation notifications
-                            if isinstance(notification, CancelledNotification):
-                                cancelled_id = notification.params.request_id
-                                if cancelled_id in self._in_flight:  # pragma: no branch
-                                    await self._in_flight[cancelled_id].cancel()
-                            else:
-                                # Handle progress notifications callback
-                                if isinstance(notification, ProgressNotification):
-                                    progress_token = notification.params.progress_token
-                                    # If there is a progress callback for this token,
-                                    # call it with the progress information
-                                    if progress_token in self._progress_callbacks:
-                                        callback = self._progress_callbacks[progress_token]
-                                        try:
-                                            await callback(
-                                                notification.params.progress,
-                                                notification.params.total,
-                                                notification.params.message,
-                                            )
-                                        except Exception:
-                                            logging.exception("Progress callback raised an exception")
-                                await self._received_notification(notification)
-                                await self._handle_incoming(notification)
+                            with mcp_server_span(self._tracer, notification):
+                                # Handle cancellation notifications
+                                if isinstance(notification, CancelledNotification):
+                                    cancelled_id = notification.params.request_id
+                                    if cancelled_id in self._in_flight:  # pragma: no branch
+                                        await self._in_flight[cancelled_id].cancel()
+                                else:
+                                    # Handle progress notifications callback
+                                    if isinstance(notification, ProgressNotification):
+                                        progress_token = notification.params.progress_token
+                                        # If there is a progress callback for this token,
+                                        # call it with the progress information
+                                        if progress_token in self._progress_callbacks:
+                                            callback = self._progress_callbacks[progress_token]
+                                            try:
+                                                await callback(
+                                                    notification.params.progress,
+                                                    notification.params.total,
+                                                    notification.params.message,
+                                                )
+                                            except Exception:
+                                                logging.exception("Progress callback raised an exception")
+                                    await self._received_notification(notification)
+                                    await self._handle_incoming(notification)
                         except Exception:  # pragma: lax no cover
                             # For other validation errors, log and continue
                             logging.warning(
@@ -449,10 +469,7 @@ class BaseSession(
                     else:
                         meta = {}
 
-                    # Extract and then update the immutable context copy
                     otel_token = otel_context.attach(extract(meta))
-                    message.context = contextvars.copy_context()
-
                     try:
                         await handle_message(message)
                     finally:
@@ -490,15 +507,15 @@ class BaseSession(
     def _normalize_request_id(self, response_id: RequestId) -> RequestId:
         """Normalize a response ID to match how request IDs are stored.
 
-        Since the client always sends integer IDs, we normalize string IDs
-        to integers when possible. This matches the TypeScript SDK approach:
-        https://github.com/modelcontextprotocol/typescript-sdk/blob/a606fb17909ea454e83aab14c73f14ea45c04448/src/shared/protocol.ts#L861
+                Since the client always sends integer IDs, we normalize string IDs
+                to integers when possible. This matches the TypeScript SDK approach:
+                https://github.com/modelcontextprotocol/typescript-sdk/blob/a606fb17909ea454e83aab14c73f14ea45c04448/src/shared/protocol.ts#L861
 
         Args:
-            response_id: The response ID from the incoming message.
+                    response_id: The response ID from the incoming message.
 
-        Returns:
-            The normalized ID (int if possible, otherwise original value).
+                Returns:
+                    The normalized ID (int if possible, otherwise original value).
         """
         if isinstance(response_id, str):
             try:

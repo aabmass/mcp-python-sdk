@@ -80,7 +80,7 @@ _ERROR_NAMES = {
 }
 
 
-def _record_error_data(span: Span, e: types.ErrorData, record_status: bool = True) -> None:
+def record_error_data(span: Span, e: types.ErrorData, record_status: bool = True) -> None:
     """Record an MCP protocol error on the span set status
 
     https://github.com/open-telemetry/semantic-conventions/blob/v1.40.0/docs/general/recording-errors.md
@@ -117,10 +117,31 @@ def mcp_client_span(
         try:
             yield span
         except MCPError as mcp_error:
-            _record_error_data(span, mcp_error.error)
+            record_error_data(span, mcp_error.error)
             span.record_exception(mcp_error)
             # re-raise outside of with block to avoid overwriting span status
             reraise_exc = mcp_error
 
     if reraise_exc:
         raise reraise_exc
+
+
+@contextlib.contextmanager
+def mcp_server_span(
+    tracer: Tracer,
+    request: types.ClientRequest | types.ServerRequest | types.ClientNotification | types.ServerNotification,
+    *,
+    json_rpc_request_id: int | str | None = None,
+    end_on_exit: bool = True,
+) -> Iterator[Span]:
+    """Starts an MCP server span as current span
+
+    https://github.com/open-telemetry/semantic-conventions/blob/v1.40.0/docs/gen-ai/mcp.md#server
+    """
+    span_name = _get_span_name(request)
+    attributes = _get_common_attributes(request, json_rpc_request_id=json_rpc_request_id)
+
+    with tracer.start_as_current_span(
+        span_name, kind=SpanKind.SERVER, attributes=attributes, end_on_exit=end_on_exit
+    ) as span:
+        yield span

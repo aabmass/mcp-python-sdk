@@ -141,8 +141,21 @@ async def test_initialize_flow(client: Client, exporter: InMemorySpanExporter):
             {
                 "name": "initialize",
                 "context": {
-                    "trace_id": "0x00000000000000000000000000000002",
-                    "span_id": "0x0000000000000002",
+                    "trace_id": "0x00000000000000000000000000000004",
+                    "span_id": "0x0000000000000005",
+                    "trace_state": "[]",
+                },
+                "kind": "SpanKind.SERVER",
+                "parent_id": "0x0000000000000004",
+                "status": {"status_code": "UNSET"},
+                "attributes": {"mcp.method.name": "initialize", "jsonrpc.request.id": "1"},
+                "links": [],
+            },
+            {
+                "name": "initialize",
+                "context": {
+                    "trace_id": "0x00000000000000000000000000000004",
+                    "span_id": "0x0000000000000004",
                     "trace_state": "[]",
                 },
                 "kind": "SpanKind.CLIENT",
@@ -154,8 +167,8 @@ async def test_initialize_flow(client: Client, exporter: InMemorySpanExporter):
             {
                 "name": "notifications/initialized",
                 "context": {
-                    "trace_id": "0x00000000000000000000000000000003",
-                    "span_id": "0x0000000000000003",
+                    "trace_id": "0x00000000000000000000000000000005",
+                    "span_id": "0x0000000000000006",
                     "trace_state": "[]",
                 },
                 "kind": "SpanKind.CLIENT",
@@ -216,8 +229,21 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/list",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "tools/list", "jsonrpc.request.id": "1"},
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/list",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -225,7 +251,7 @@ async def call_tool_with_logging(client: Client):
                         "status": {"status_code": "UNSET"},
                         "attributes": {"mcp.method.name": "tools/list", "jsonrpc.request.id": "1"},
                         "links": [],
-                    }
+                    },
                 ]
             ),
         ),
@@ -236,8 +262,26 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/call my_tool",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {
+                            "mcp.method.name": "tools/call",
+                            "jsonrpc.request.id": "1",
+                            "gen_ai.tool.name": "my_tool",
+                            "gen_ai.operation.name": "execute_tool",
+                        },
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/call my_tool",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -254,8 +298,21 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/list",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000003",
-                            "span_id": "0x0000000000000003",
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000007",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000006",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "tools/list", "jsonrpc.request.id": "2"},
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/list",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000006",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -274,12 +331,25 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "sampling/createMessage",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000003",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000007",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000006",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "sampling/createMessage", "jsonrpc.request.id": "0"},
+                        "links": [],
+                    },
+                    {
+                        "name": "sampling/createMessage",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000006",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
-                        "parent_id": "0x0000000000000002",
+                        "parent_id": "0x0000000000000005",
                         "status": {"status_code": "UNSET"},
                         "attributes": {"mcp.method.name": "sampling/createMessage", "jsonrpc.request.id": "0"},
                         "links": [],
@@ -287,8 +357,26 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/call tool_with_sampling",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {
+                            "mcp.method.name": "tools/call",
+                            "jsonrpc.request.id": "1",
+                            "gen_ai.tool.name": "tool_with_sampling",
+                            "gen_ai.operation.name": "execute_tool",
+                        },
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/call tool_with_sampling",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -305,8 +393,21 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/list",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000003",
-                            "span_id": "0x0000000000000004",
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000009",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000008",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "tools/list", "jsonrpc.request.id": "2"},
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/list",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000008",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -325,12 +426,12 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "notifications/progress",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000003",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000006",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
-                        "parent_id": "0x0000000000000002",
+                        "parent_id": "0x0000000000000005",
                         "status": {"status_code": "UNSET"},
                         "attributes": {"mcp.method.name": "notifications/progress"},
                         "links": [],
@@ -338,8 +439,39 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/call tool_with_progress",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {
+                            "mcp.method.name": "tools/call",
+                            "jsonrpc.request.id": "1",
+                            "gen_ai.tool.name": "tool_with_progress",
+                            "gen_ai.operation.name": "execute_tool",
+                        },
+                        "links": [],
+                    },
+                    {
+                        "name": "notifications/progress",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000007",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000005",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "notifications/progress"},
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/call tool_with_progress",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -356,8 +488,21 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/list",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000003",
-                            "span_id": "0x0000000000000004",
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000009",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000008",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "tools/list", "jsonrpc.request.id": "2"},
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/list",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000008",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -376,8 +521,25 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "prompts/get my_prompt",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {
+                            "mcp.method.name": "prompts/get",
+                            "jsonrpc.request.id": "1",
+                            "gen_ai.prompt.name": "my_prompt",
+                        },
+                        "links": [],
+                    },
+                    {
+                        "name": "prompts/get my_prompt",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -389,7 +551,7 @@ async def call_tool_with_logging(client: Client):
                             "gen_ai.prompt.name": "my_prompt",
                         },
                         "links": [],
-                    }
+                    },
                 ]
             ),
         ),
@@ -400,8 +562,25 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "resources/read",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {
+                            "mcp.method.name": "resources/read",
+                            "jsonrpc.request.id": "1",
+                            "mcp.resource.uri": "file:///home/user/documents/report.pdf",
+                        },
+                        "links": [],
+                    },
+                    {
+                        "name": "resources/read",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -413,7 +592,7 @@ async def call_tool_with_logging(client: Client):
                             "mcp.resource.uri": "file:///home/user/documents/report.pdf",
                         },
                         "links": [],
-                    }
+                    },
                 ]
             ),
         ),
@@ -424,8 +603,27 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "prompts/get does_not_exist",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "ERROR", "description": "Unknown prompt: does_not_exist"},
+                        "attributes": {
+                            "mcp.method.name": "prompts/get",
+                            "jsonrpc.request.id": "1",
+                            "gen_ai.prompt.name": "does_not_exist",
+                            "error.type": "0",
+                            "rpc.response.status_code": "0",
+                        },
+                        "links": [],
+                    },
+                    {
+                        "name": "prompts/get does_not_exist",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -439,7 +637,7 @@ async def call_tool_with_logging(client: Client):
                             "rpc.response.status_code": "0",
                         },
                         "links": [],
-                    }
+                    },
                 ]
             ),
         ),
@@ -450,12 +648,12 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "notifications/message",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000003",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000006",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
-                        "parent_id": "0x0000000000000002",
+                        "parent_id": "0x0000000000000005",
                         "status": {"status_code": "UNSET"},
                         "attributes": {"mcp.method.name": "notifications/message"},
                         "links": [],
@@ -463,8 +661,39 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/call tool_with_logging",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000002",
-                            "span_id": "0x0000000000000002",
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000005",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000004",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {
+                            "mcp.method.name": "tools/call",
+                            "jsonrpc.request.id": "1",
+                            "gen_ai.tool.name": "tool_with_logging",
+                            "gen_ai.operation.name": "execute_tool",
+                        },
+                        "links": [],
+                    },
+                    {
+                        "name": "notifications/message",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000007",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000005",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "notifications/message"},
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/call tool_with_logging",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000004",
+                            "span_id": "0x0000000000000004",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -481,8 +710,21 @@ async def call_tool_with_logging(client: Client):
                     {
                         "name": "tools/list",
                         "context": {
-                            "trace_id": "0x00000000000000000000000000000003",
-                            "span_id": "0x0000000000000004",
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000009",
+                            "trace_state": "[]",
+                        },
+                        "kind": "SpanKind.SERVER",
+                        "parent_id": "0x0000000000000008",
+                        "status": {"status_code": "UNSET"},
+                        "attributes": {"mcp.method.name": "tools/list", "jsonrpc.request.id": "2"},
+                        "links": [],
+                    },
+                    {
+                        "name": "tools/list",
+                        "context": {
+                            "trace_id": "0x00000000000000000000000000000005",
+                            "span_id": "0x0000000000000008",
                             "trace_state": "[]",
                         },
                         "kind": "SpanKind.CLIENT",
@@ -547,8 +789,8 @@ async def test_timeout(client: Client, server: MCPServer, exporter: InMemorySpan
             {
                 "name": "tools/call slow_tool",
                 "context": {
-                    "trace_id": "0x00000000000000000000000000000002",
-                    "span_id": "0x0000000000000002",
+                    "trace_id": "0x00000000000000000000000000000004",
+                    "span_id": "0x0000000000000004",
                     "trace_state": "[]",
                 },
                 "kind": "SpanKind.CLIENT",
@@ -566,7 +808,25 @@ async def test_timeout(client: Client, server: MCPServer, exporter: InMemorySpan
                     "rpc.response.status_code": "-32001",
                 },
                 "links": [],
-            }
+            },
+            {
+                "name": "tools/call slow_tool",
+                "context": {
+                    "trace_id": "0x00000000000000000000000000000004",
+                    "span_id": "0x0000000000000005",
+                    "trace_state": "[]",
+                },
+                "kind": "SpanKind.SERVER",
+                "parent_id": "0x0000000000000004",
+                "status": {"status_code": "UNSET"},
+                "attributes": {
+                    "mcp.method.name": "tools/call",
+                    "jsonrpc.request.id": "1",
+                    "gen_ai.tool.name": "slow_tool",
+                    "gen_ai.operation.name": "execute_tool",
+                },
+                "links": [],
+            },
         ]
     )
 
@@ -605,8 +865,8 @@ async def test_cancellation(client: Client, server: MCPServer, exporter: InMemor
             {
                 "name": "notifications/cancelled",
                 "context": {
-                    "trace_id": "0x00000000000000000000000000000003",
-                    "span_id": "0x0000000000000003",
+                    "trace_id": "0x00000000000000000000000000000005",
+                    "span_id": "0x0000000000000006",
                     "trace_state": "[]",
                 },
                 "kind": "SpanKind.CLIENT",
@@ -618,8 +878,41 @@ async def test_cancellation(client: Client, server: MCPServer, exporter: InMemor
             {
                 "name": "tools/call blocked_tool",
                 "context": {
-                    "trace_id": "0x00000000000000000000000000000002",
-                    "span_id": "0x0000000000000002",
+                    "trace_id": "0x00000000000000000000000000000004",
+                    "span_id": "0x0000000000000005",
+                    "trace_state": "[]",
+                },
+                "kind": "SpanKind.SERVER",
+                "parent_id": "0x0000000000000004",
+                "status": {"status_code": "ERROR", "description": "Request cancelled"},
+                "attributes": {
+                    "mcp.method.name": "tools/call",
+                    "jsonrpc.request.id": "1",
+                    "gen_ai.tool.name": "blocked_tool",
+                    "gen_ai.operation.name": "execute_tool",
+                    "error.type": "0",
+                    "rpc.response.status_code": "0",
+                },
+                "links": [],
+            },
+            {
+                "name": "notifications/cancelled",
+                "context": {
+                    "trace_id": "0x00000000000000000000000000000006",
+                    "span_id": "0x0000000000000007",
+                    "trace_state": "[]",
+                },
+                "kind": "SpanKind.SERVER",
+                "parent_id": None,
+                "status": {"status_code": "UNSET"},
+                "attributes": {"mcp.method.name": "notifications/cancelled"},
+                "links": [],
+            },
+            {
+                "name": "tools/call blocked_tool",
+                "context": {
+                    "trace_id": "0x00000000000000000000000000000004",
+                    "span_id": "0x0000000000000004",
                     "trace_state": "[]",
                 },
                 "kind": "SpanKind.CLIENT",
