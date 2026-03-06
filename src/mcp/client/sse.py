@@ -47,6 +47,7 @@ async def sse_client(
         headers: Optional headers to include in requests.
         timeout: HTTP timeout for regular operations (in seconds).
         sse_read_timeout: Timeout for SSE read operations (in seconds).
+        httpx_client_factory: Factory function for creating the HTTPX client.
         auth: Optional HTTPX authentication handler.
         on_session_created: Optional callback invoked with the session ID when received.
     """
@@ -131,18 +132,26 @@ async def sse_client(
                     async def post_writer(endpoint_url: str):
                         try:
                             async with write_stream_reader:
-                                async for session_message in write_stream_reader:
+
+                                async def handle_message(session_message: SessionMessage) -> None:
                                     logger.debug(f"Sending client message: {session_message}")
                                     response = await client.post(
                                         endpoint_url,
                                         json=session_message.message.model_dump(
                                             by_alias=True,
                                             mode="json",
-                                            exclude_none=True,
+                                            exclude_unset=True,
                                         ),
                                     )
                                     response.raise_for_status()
                                     logger.debug(f"Client message sent successfully: {response.status_code}")
+
+                                async for session_message in write_stream_reader:
+                                    async with anyio.create_task_group() as tg_local:
+                                        session_message.context.run(
+                                            tg_local.start_soon, handle_message, session_message
+                                        )
+
                         except Exception:  # pragma: lax no cover
                             logger.exception("Error in post_writer")
                         finally:

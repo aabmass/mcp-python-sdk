@@ -19,6 +19,7 @@ from mcp.client._transport import TransportStreams
 from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.message import ClientMessageMetadata, SessionMessage
 from mcp.types import (
+    INTERNAL_ERROR,
     INVALID_REQUEST,
     PARSE_ERROR,
     ErrorData,
@@ -259,7 +260,7 @@ class StreamableHTTPTransport:
         async with ctx.client.stream(
             "POST",
             self.url,
-            json=message.model_dump(by_alias=True, mode="json", exclude_none=True),
+            json=message.model_dump(by_alias=True, mode="json", exclude_unset=True),
             headers=headers,
         ) as response:
             if response.status_code == 202:
@@ -273,7 +274,13 @@ class StreamableHTTPTransport:
                     await ctx.read_stream_writer.send(session_message)
                 return
 
-            response.raise_for_status()
+            if response.status_code >= 400:
+                if isinstance(message, JSONRPCRequest):
+                    error_data = ErrorData(code=INTERNAL_ERROR, message="Server returned an error response")
+                    session_message = SessionMessage(JSONRPCError(jsonrpc="2.0", id=message.id, error=error_data))
+                    await ctx.read_stream_writer.send(session_message)
+                return
+
             if is_initialization:
                 self._maybe_extract_session_id_from_response(response)
 
@@ -351,7 +358,7 @@ class StreamableHTTPTransport:
                     resumption_callback=(ctx.metadata.on_resumption_token_update if ctx.metadata else None),
                     is_initialization=is_initialization,
                 )
-                # If the SSE event indicates completion, like returning respose/error
+                # If the SSE event indicates completion, like returning response/error
                 # break the loop
                 if is_complete:
                     await response.aclose()
@@ -434,7 +441,8 @@ class StreamableHTTPTransport:
         """Handle writing requests to the server."""
         try:
             async with write_stream_reader:
-                async for session_message in write_stream_reader:
+
+                async def handle_message(session_message: SessionMessage) -> None:
                     message = session_message.message
                     metadata = (
                         session_message.metadata
@@ -471,8 +479,12 @@ class StreamableHTTPTransport:
                     else:
                         await handle_request_async()
 
-        except Exception:  # pragma: lax no cover
-            logger.exception("Error in post_writer")
+                async for session_message in write_stream_reader:
+                    async with anyio.create_task_group() as tg_local:
+                        session_message.context.run(tg_local.start_soon, handle_message, session_message)
+
+        except Exception:
+            logger.exception("Error in post_writer")  # pragma: no cover
         finally:
             await read_stream_writer.aclose()
             await write_stream.aclose()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextvars
 import logging
 from collections.abc import Callable
 from contextlib import AsyncExitStack
@@ -60,8 +61,10 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
     cancellation handling:
 
     Example:
+        ```python
         with request_responder as resp:
             await resp.respond(result)
+        ```
 
     The context manager ensures:
     1. Proper cancellation scope setup and cleanup
@@ -77,11 +80,13 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
         session: BaseSession[SendRequestT, SendNotificationT, SendResultT, ReceiveRequestT, ReceiveNotificationT],
         on_complete: Callable[[RequestResponder[ReceiveRequestT, SendResultT]], Any],
         message_metadata: MessageMetadata = None,
+        context: contextvars.Context | None = None,
     ) -> None:
         self.request_id = request_id
         self.request_meta = request_meta
         self.request = request
         self.message_metadata = message_metadata
+        self.context = context
         self._session = session
         self._completed = False
         self._cancel_scope = anyio.CancelScope()
@@ -115,6 +120,7 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
         """Send a response for this request.
 
         Must be called within a context manager block.
+
         Raises:
             RuntimeError: If not used within a context manager
             AssertionError: If request was already responded to
@@ -142,7 +148,7 @@ class RequestResponder(Generic[ReceiveRequestT, SendResultT]):
         # Send an error response to indicate cancellation
         await self._session._send_response(  # type: ignore[reportPrivateUsage]
             request_id=self.request_id,
-            response=ErrorData(code=0, message="Request cancelled", data=None),
+            response=ErrorData(code=0, message="Request cancelled"),
         )
 
     @property
@@ -235,7 +241,7 @@ class BaseSession(
         metadata: MessageMetadata = None,
         progress_callback: ProgressFnT | None = None,
     ) -> ReceiveResultT:
-        """Sends a request and wait for a response.
+        """Sends a request and waits for a response.
 
         Raises an MCPError if the response contains an error. If a request read timeout is provided, it will take
         precedence over the session read timeout.
@@ -330,10 +336,9 @@ class BaseSession(
     async def _receive_loop(self) -> None:
         async with self._read_stream, self._write_stream:
             try:
-                async for message in self._read_stream:
-                    if isinstance(message, Exception):  # pragma: no cover
-                        await self._handle_incoming(message)
-                    elif isinstance(message.message, JSONRPCRequest):
+
+                async def handle_message(message: SessionMessage) -> None:
+                    if isinstance(message.message, JSONRPCRequest):
                         try:
                             validated_request = self._receive_request_adapter.validate_python(
                                 message.message.model_dump(by_alias=True, mode="json", exclude_none=True),
@@ -346,6 +351,7 @@ class BaseSession(
                                 session=self,
                                 on_complete=lambda r: self._in_flight.pop(r.request_id, None),
                                 message_metadata=message.metadata,
+                                context=message.context,
                             )
                             self._in_flight[responder.request_id] = responder
                             await self._received_request(responder)
@@ -394,14 +400,21 @@ class BaseSession(
                                             logging.exception("Progress callback raised an exception")
                                 await self._received_notification(notification)
                                 await self._handle_incoming(notification)
-                        except Exception:
+                        except Exception:  # pragma: lax no cover
                             # For other validation errors, log and continue
-                            logging.warning(  # pragma: no cover
+                            logging.warning(
                                 f"Failed to validate notification:. Message was: {message.message}",
                                 exc_info=True,
                             )
                     else:  # Response or error
                         await self._handle_response(message)
+
+                async for message in self._read_stream:
+                    if isinstance(message, Exception):  # pragma: no cover
+                        await self._handle_incoming(message)
+                    else:
+                        async with anyio.create_task_group() as tg:
+                            message.context.run(tg.start_soon, handle_message, message)
 
             except anyio.ClosedResourceError:
                 # This is expected when the client disconnects abruptly.
@@ -458,6 +471,12 @@ class BaseSession(
         if not isinstance(message.message, JSONRPCResponse | JSONRPCError):
             return  # pragma: no cover
 
+        if message.message.id is None:
+            # Narrows to JSONRPCError since JSONRPCResponse.id is always RequestId
+            error = message.message.error
+            logging.warning(f"Received error with null ID: {error.message}")
+            await self._handle_incoming(MCPError(error.code, error.message, error.data))
+            return
         # Normalize response ID to handle type mismatches (e.g., "0" vs 0)
         response_id = self._normalize_request_id(message.message.id)
 
@@ -506,4 +525,4 @@ class BaseSession(
     async def _handle_incoming(
         self, req: RequestResponder[ReceiveRequestT, SendResultT] | ReceiveNotificationT | Exception
     ) -> None:
-        """A generic handler for incoming messages. Overwritten by subclasses."""
+        """A generic handler for incoming messages. Overridden by subclasses."""
